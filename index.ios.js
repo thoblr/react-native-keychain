@@ -107,10 +107,11 @@ var Keychain = {
    */
   getGenericPassword: function(
     service?: string,
+    promptMessage?: string,
     callback?: ?(error: ?Error, result: ?string) => void
   ): Promise {
     return new Promise((resolve, reject) => {
-      RNKeychainManager.getGenericPasswordForService(service, function(err, username, password) {
+      RNKeychainManager.getGenericPasswordForService(service, promptMessage, function(err, username, password) {
         err = convertError(err);
         if(!err && arguments.length === 1) {
           err = new Error('No keychain entry found' + (service ? ' for service "' + service + '"' : ''));

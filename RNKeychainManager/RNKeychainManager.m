@@ -76,6 +76,16 @@ RCT_EXPORT_METHOD(setGenericPasswordForService:(NSString*)service withUsername:(
     service = [[NSBundle mainBundle] bundleIdentifier];
   }
 
+  CFErrorRef error = NULL;
+  SecAccessControlRef sacObject = SecAccessControlCreateWithFlags(kCFAllocatorDefault,
+                                                                  kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly,
+                                                                  kSecAccessControlTouchIDCurrentSet, &error);
+
+  if (sacObject == NULL || error != NULL) {
+    NSString *errorString = [NSString stringWithFormat:@"SecItemAdd can't create sacObject: %@", error];
+    return callback(@[makeError(errorString)]);
+  }
+
   // Create dictionary of search parameters
   NSDictionary* dict = [NSDictionary dictionaryWithObjectsAndKeys:(__bridge id)(kSecClassGenericPassword),  kSecClass, service, kSecAttrService, kCFBooleanTrue, kSecReturnAttributes, nil];
 
@@ -84,27 +94,27 @@ RCT_EXPORT_METHOD(setGenericPasswordForService:(NSString*)service withUsername:(
 
   // Create dictionary of parameters to add
   NSData* passwordData = [password dataUsingEncoding:NSUTF8StringEncoding];
-  dict = [NSDictionary dictionaryWithObjectsAndKeys:(__bridge id)(kSecClassGenericPassword), kSecClass, service, kSecAttrService, passwordData, kSecValueData, username, kSecAttrAccount, nil];
+  dict = [NSDictionary dictionaryWithObjectsAndKeys:(__bridge id)(kSecClassGenericPassword), kSecClass, service, kSecAttrService, passwordData, kSecValueData, username, kSecAttrAccount, (__bridge id)sacObject, kSecAttrAccessControl, nil];
 
   // Try to save to keychain
-  osStatus = SecItemAdd((__bridge CFDictionaryRef) dict, NULL);
+  osStatus = SecItemAdd((__bridge CFDictionaryRef) dict, nil);
 
   if (osStatus != noErr && osStatus != errSecItemNotFound) {
-    NSError *error = [NSError errorWithDomain:NSOSStatusErrorDomain code:osStatus userInfo:nil];
-    return callback(@[makeError(error)]);
+    NSError *errorString = [NSError errorWithDomain:NSOSStatusErrorDomain code:osStatus userInfo:nil];
+    return callback(@[makeError(errorString)]);
   }
 
   callback(@[[NSNull null]]);
 
 }
 
-RCT_EXPORT_METHOD(getGenericPasswordForService:(NSString*)service callback:(RCTResponseSenderBlock)callback){
+RCT_EXPORT_METHOD(getGenericPasswordForService:(NSString*)service withUseOperationPrompt:(NSString*)useOperationPrompt callback:(RCTResponseSenderBlock)callback){
   if(service == nil) {
     service = [[NSBundle mainBundle] bundleIdentifier];
   }
 
   // Create dictionary of search parameters
-  NSDictionary* dict = [NSDictionary dictionaryWithObjectsAndKeys:(__bridge id)(kSecClassGenericPassword), kSecClass, service, kSecAttrService, kCFBooleanTrue, kSecReturnAttributes, kCFBooleanTrue, kSecReturnData, nil];
+  NSDictionary* dict = [NSDictionary dictionaryWithObjectsAndKeys:(__bridge id)(kSecClassGenericPassword), kSecClass, service, kSecAttrService, kCFBooleanTrue, kSecReturnAttributes, kCFBooleanTrue, kSecReturnData, useOperationPrompt, kSecUseOperationPrompt, nil];
 
   // Look up server in the keychain
   NSDictionary* found = nil;
